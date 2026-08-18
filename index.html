@@ -801,6 +801,52 @@ html{scroll-behavior:smooth}
 }
 </style>
 
+
+<style>
+.inventory-loading,
+.inventory-sync-error{
+  grid-column:1/-1;
+  min-height:220px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  border:1px solid #262c34;
+  background:#0f1318;
+  padding:28px;
+  color:#aeb7c2;
+}
+.inventory-sync-error{
+  flex-direction:column;
+  gap:10px;
+}
+.inventory-sync-error strong{color:#fff;font-size:18px}
+.inventory-sync-error span{max-width:680px;line-height:1.65}
+.modal-photo-nav{
+  position:absolute;
+  top:50%;
+  transform:translateY(-50%);
+  width:42px;height:42px;
+  border:1px solid rgba(255,255,255,.22);
+  background:rgba(8,10,13,.78);
+  color:#fff;border-radius:3px;
+  cursor:pointer;z-index:3;
+}
+.modal-photo-prev{left:14px}
+.modal-photo-next{right:14px}
+.modal-photo-count{
+  position:absolute;
+  right:14px;bottom:14px;
+  background:rgba(8,10,13,.8);
+  color:#fff;
+  border:1px solid rgba(255,255,255,.18);
+  padding:6px 9px;
+  border-radius:3px;
+  font-size:11px;
+}
+.live-modal-image{position:relative}
+</style>
+
 </head>
 <body>
   <header class="site-header" id="top">
@@ -859,13 +905,13 @@ html{scroll-behavior:smooth}
             <h2>Shop the inventory</h2>
             <p>Use the filters to quickly narrow down the vehicles that fit what you’re looking for.</p>
           </div>
-          <div class="inventory-count"><span id="resultCount">155</span> vehicles shown</div>
+          <div class="inventory-count"><span id="resultCount">0</span> vehicles shown</div>
         </div>
 
 
         <div class="demo-notice">
-          <strong>Demo Inventory</strong>
-          <span>155 sample vehicles are loaded to demonstrate the full inventory, filtering, sorting, and vehicle-detail experience.</span>
+          <strong>Live Inventory</strong>
+          <span>Inventory synced from Waxahachie Autoplex. Vehicle availability, pricing, mileage, and photos update from the dealership source.</span>
         </div>
 
         <div class="filter-panel">
@@ -1017,75 +1063,10 @@ html{scroll-behavior:smooth}
 
   <script>
 
-const catalog = [
-  ['Toyota',['Camry SE','Camry XSE','Corolla LE','Corolla SE','RAV4 XLE','Highlander XLE','Tacoma SR5','4Runner SR5']],
-  ['Honda',['Civic Sport','Civic Touring','Accord Sport','CR-V EX','HR-V Sport','Pilot EX-L','Ridgeline RTL']],
-  ['Ford',['F-150 XLT','F-150 Lariat','Mustang GT','Mustang EcoBoost','Explorer XLT','Escape SE','Bronco Big Bend','Edge SEL']],
-  ['Chevrolet',['Silverado 1500 LT','Tahoe LT','Suburban LT','Malibu LT','Equinox LT','Traverse RS','Camaro LT1']],
-  ['Nissan',['Altima SR','Sentra SV','Rogue SV','Pathfinder SL','Frontier PRO-4X','Murano Platinum']],
-  ['BMW',['330i','430i Gran Coupe','X3 xDrive30i','X5 xDrive40i','M340i']],
-  ['Mercedes-Benz',['C 300','E 350','GLC 300','GLE 350','CLA 250']],
-  ['Jeep',['Wrangler Unlimited','Grand Cherokee Limited','Compass Latitude','Gladiator Overland']],
-  ['Hyundai',['Elantra SEL','Sonata N Line','Tucson SEL','Santa Fe Limited','Palisade SEL']],
-  ['Kia',['K5 GT-Line','Forte GT','Sportage EX','Telluride EX','Sorento SX']],
-  ['Tesla',['Model 3','Model Y','Model S']],
-  ['Lexus',['IS 350 F Sport','ES 350','RX 350','NX 350']],
-  ['Audi',['A4 Premium','A5 Sportback','Q5 Premium Plus','Q7 Premium']],
-  ['Dodge',['Charger R/T','Challenger R/T','Durango GT']],
-  ['GMC',['Sierra 1500 SLT','Yukon SLT','Terrain Denali']],
-  ['Subaru',['Outback Premium','Forester Sport','Crosstrek Limited','WRX Premium']]
-];
 
-const imagePool = [
- 'https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&w=1200&q=82',
- 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?auto=format&fit=crop&w=1200&q=82',
- 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=1200&q=82',
- 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=1200&q=82',
- 'https://images.unsplash.com/photo-1590362891991-f776e747a588?auto=format&fit=crop&w=1200&q=82',
- 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&w=1200&q=82',
- 'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?auto=format&fit=crop&w=1200&q=82',
- 'https://images.unsplash.com/photo-1584345604476-8ec5e12e42dd?auto=format&fit=crop&w=1200&q=82'
-];
-
-const badgePool = ['Recently added','Great value','Low mileage','Popular','Fresh trade','Just arrived'];
-const transPool = ['Automatic','Automatic','Automatic','Automatic','Manual'];
-const enginePool = ['4-Cylinder','4-Cylinder','V6','V8','Electric'];
-
-function seeded(n){
-  const x = Math.sin(n * 999.91) * 43758.5453;
-  return x - Math.floor(x);
-}
-
-const flat = [];
-catalog.forEach(([make, models]) => models.forEach(model => flat.push({make,model})));
-
-const vehicles = Array.from({length:155}, (_,i) => {
-  const id = i + 1;
-  const item = flat[(i * 7 + Math.floor(seeded(id)*flat.length)) % flat.length];
-  let engine = enginePool[Math.floor(seeded(id+20) * enginePool.length)];
-  if(item.make === 'Tesla') engine = 'Electric';
-  if(engine === 'Electric' && item.make !== 'Tesla' && seeded(id+23) > .18) engine = '4-Cylinder';
-
-  const year = 2019 + Math.floor(seeded(id+2) * 8);
-  const miles = Math.max(1200, Math.floor(4500 + seeded(id+3) * 93000));
-  const basePrice = 16900 + Math.floor(seeded(id+4) * 47000);
-  const price = Math.round(basePrice / 100) * 100 + 95;
-
-  return {
-    id,
-    stock: `D${String(24000 + id).padStart(5,'0')}`,
-    listed: 155 - i,
-    year,
-    make: item.make,
-    model: item.model,
-    price,
-    miles,
-    trans: transPool[Math.floor(seeded(id+5) * transPool.length)],
-    engine,
-    image: imagePool[(i*3 + Math.floor(seeded(id+6)*imagePool.length)) % imagePool.length],
-    badge: badgePool[Math.floor(seeded(id+7) * badgePool.length)]
-  };
-});
+let vehicles = [];
+let inventoryLoaded = false;
+let inventorySourceUpdated = null;
 
 const $ = s => document.querySelector(s);
 const grid = $('#vehicleGrid');
@@ -1104,9 +1085,20 @@ function addOptions(el, values){
     o.value=v;o.textContent=v;el.appendChild(o);
   });
 }
-addOptions($('#yearFilter'), [...new Set(vehicles.map(v=>v.year))].sort((a,b)=>b-a));
-addOptions($('#makeFilter'), [...new Set(vehicles.map(v=>v.make))].sort());
-addOptions($('#modelFilter'), [...new Set(vehicles.map(v=>v.model))].sort());
+
+function populateInventoryFilters(){
+  const year = $('#yearFilter');
+  const make = $('#makeFilter');
+  const model = $('#modelFilter');
+
+  year.innerHTML='<option value="all">All Years</option>';
+  make.innerHTML='<option value="all">All Makes</option>';
+  model.innerHTML='<option value="all">All Models</option>';
+
+  addOptions(year, [...new Set(vehicles.map(v=>v.year).filter(Boolean))].sort((a,b)=>b-a));
+  addOptions(make, [...new Set(vehicles.map(v=>v.make).filter(Boolean))].sort());
+  addOptions(model, [...new Set(vehicles.map(v=>v.model).filter(Boolean))].sort());
+}
 
 function updateModelOptions(){
   const make = $('#makeFilter').value;
@@ -1121,6 +1113,7 @@ function updateModelOptions(){
 
 function matchesMileage(v,val){
   if(val==='all')return true;
+  if(v.miles==null || Number.isNaN(Number(v.miles))) return false;
   if(val==='under25')return v.miles<25000;
   if(val==='under50')return v.miles<50000;
   if(val==='under75')return v.miles<75000;
@@ -1128,6 +1121,7 @@ function matchesMileage(v,val){
 }
 function matchesPrice(v,val){
   if(val==='all')return true;
+  if(v.price==null || Number.isNaN(Number(v.price))) return false;
   if(val==='under20')return v.price<20000;
   if(val==='under30')return v.price<30000;
   if(val==='under40')return v.price<40000;
@@ -1149,13 +1143,16 @@ function render(){
   });
 
   const sort=$('#sortSelect').value;
-  list.sort((a,b)=>
-    sort==='price-asc'?a.price-b.price:
-    sort==='price-desc'?b.price-a.price:
-    sort==='year-asc'?a.year-b.year:
-    sort==='year-desc'?b.year-a.year:
-    b.listed-a.listed
-  );
+  list.sort((a,b)=>{
+    const ap=Number.isFinite(Number(a.price))?Number(a.price):Number.MAX_SAFE_INTEGER;
+    const bp=Number.isFinite(Number(b.price))?Number(b.price):Number.MAX_SAFE_INTEGER;
+    const ay=Number(a.year)||0, by=Number(b.year)||0;
+    return sort==='price-asc'?ap-bp:
+      sort==='price-desc'?(bp===Number.MAX_SAFE_INTEGER?-1:bp)-(ap===Number.MAX_SAFE_INTEGER?-1:ap):
+      sort==='year-asc'?ay-by:
+      sort==='year-desc'?by-ay:
+      (b.listed||0)-(a.listed||0);
+  });
 
   currentFilteredList = list;
   const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
@@ -1167,25 +1164,33 @@ function render(){
   $('#resultCount').textContent=list.length;
   $('#emptyState').hidden=list.length!==0;
 
-  grid.innerHTML=pageItems.map(v=>`<article class="vehicle-card">
-    <div class="vehicle-image" style="background-image:url('${v.image}')">
-      <span class="vehicle-badge">${v.badge}</span>
-    </div>
-    <div class="vehicle-body">
-      <div class="vehicle-title-row">
-        <h3>${v.year} ${v.make}<br>${v.model}</h3>
-        <div class="vehicle-price">${money(v.price)}</div>
+  grid.innerHTML=pageItems.map(v=>{
+    const image=v.image || (v.images && v.images[0]) || '';
+    const price=v.price ? money(v.price) : 'Call for price';
+    const miles=(v.miles!=null && !Number.isNaN(Number(v.miles))) ? `${fmt(v.miles)} mi` : 'Mileage unavailable';
+    const trans=v.trans || 'Transmission unavailable';
+    const engine=v.engine || 'Engine unavailable';
+    const stock=v.stock ? `Stock #${v.stock}` : (v.vin ? `VIN ${v.vin}` : 'Waxahachie Autoplex');
+    return `<article class="vehicle-card">
+      <div class="vehicle-image" ${image?`style="background-image:url('${image.replace(/'/g,"%27")}')"`:''}>
+        <span class="vehicle-badge">${v.badge || 'Available'}</span>
       </div>
-      <div class="vehicle-meta">
-        <span>${fmt(v.miles)} mi</span><span>${v.trans}</span><span>${v.engine}</span>
+      <div class="vehicle-body">
+        <div class="vehicle-title-row">
+          <h3>${v.year || ''} ${v.make || ''}<br>${v.model || v.title || ''}</h3>
+          <div class="vehicle-price">${price}</div>
+        </div>
+        <div class="vehicle-meta">
+          <span>${miles}</span><span>${trans}</span><span>${engine}</span>
+        </div>
+        <div class="vehicle-stock">${stock}</div>
+        <div class="vehicle-actions">
+          <button class="view-btn" data-vehicle-id="${v.id}">View vehicle</button>
+          <a class="call-btn" href="tel:+13235422341">Call Marcell</a>
+        </div>
       </div>
-      <div class="vehicle-stock">Stock #${v.stock}</div>
-      <div class="vehicle-actions">
-        <button class="view-btn" data-vehicle-id="${v.id}">View vehicle</button>
-        <a class="call-btn" href="tel:+13235422341">Call</a>
-      </div>
-    </div>
-  </article>`).join('');
+    </article>`;
+  }).join('');
 
   grid.querySelectorAll('.view-btn').forEach(btn=>{
     btn.addEventListener('click',()=>openVehicle(Number(btn.dataset.vehicleId)));
@@ -1261,25 +1266,57 @@ $('#sortSelect').addEventListener('change',()=>{currentPage=1;render();});
 $('#clearFilters').addEventListener('click',reset);
 $('#emptyReset').addEventListener('click',reset);
 
+
 window.openVehicle=id=>{
-  const v=vehicles.find(x=>x.id===id); if(!v)return;
+  const v=vehicles.find(x=>String(x.id)===String(id)); if(!v)return;
+  const photos=(v.images && v.images.length ? v.images : [v.image]).filter(Boolean);
+  const specs=[
+    ['Mileage', v.miles!=null ? `${fmt(v.miles)} miles` : 'Unavailable'],
+    ['Transmission', v.trans || 'Unavailable'],
+    ['Engine', v.engine || 'Unavailable'],
+    ['Drivetrain', v.drivetrain || 'Unavailable'],
+    ['Exterior', v.exterior || 'Unavailable'],
+    ['Interior', v.interior || 'Unavailable'],
+    ['Fuel', v.fuel || 'Unavailable'],
+    ['VIN', v.vin || 'Unavailable'],
+    ['Stock', v.stock || 'Unavailable']
+  ];
+  const mainPhoto=photos[0] || '';
   $('#modalContent').innerHTML=`
-    <div class="modal-image" style="background-image:url('${v.image}')"></div>
+    <div class="modal-image live-modal-image" ${mainPhoto?`style="background-image:url('${mainPhoto.replace(/'/g,"%27")}')"`:''}>
+      ${photos.length>1?`
+        <button class="modal-photo-nav modal-photo-prev" type="button" aria-label="Previous vehicle photo">←</button>
+        <button class="modal-photo-nav modal-photo-next" type="button" aria-label="Next vehicle photo">→</button>
+        <span class="modal-photo-count">1 / ${photos.length}</span>`:''}
+    </div>
     <div class="modal-body">
-      <span class="kicker">DEMO VEHICLE • STOCK #${v.stock}</span>
-      <h2>${v.year} ${v.make} ${v.model}</h2>
-      <div class="modal-price">${money(v.price)}</div>
+      <span class="kicker">WAXAHACHIE AUTOPLEX INVENTORY</span>
+      <h2>${v.title || `${v.year||''} ${v.make||''} ${v.model||''}`}</h2>
+      <div class="modal-price">${v.price?money(v.price):'Call for price'}</div>
       <div class="modal-specs">
-        <div><span>Mileage</span><strong>${fmt(v.miles)} miles</strong></div>
-        <div><span>Transmission</span><strong>${v.trans}</strong></div>
-        <div><span>Engine</span><strong>${v.engine}</strong></div>
-        <div><span>Status</span><strong>Available</strong></div>
+        ${specs.map(([label,value])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('')}
       </div>
       <div class="modal-buttons">
-        <a class="btn btn-primary" href="tel:+13235422341">Call about this vehicle</a>
-        <a class="btn btn-ghost" href="#contact" onclick="document.querySelector('#vehicleModal').close()">Ask a question</a>
+        <a class="btn btn-primary" href="tel:+13235422341">Call Marcell</a>
+        ${v.url?`<a class="btn btn-ghost" href="${v.url}" target="_blank" rel="noopener">Official vehicle listing</a>`:''}
       </div>
     </div>`;
+
+  if(photos.length>1){
+    let photoIndex=0;
+    const imageEl=$('#modalContent .live-modal-image');
+    const countEl=$('#modalContent .modal-photo-count');
+    const showPhoto=()=>{
+      imageEl.style.backgroundImage=`url("${photos[photoIndex].replace(/"/g,'%22')}")`;
+      countEl.textContent=`${photoIndex+1} / ${photos.length}`;
+    };
+    $('#modalContent .modal-photo-prev').addEventListener('click',()=>{
+      photoIndex=(photoIndex-1+photos.length)%photos.length;showPhoto();
+    });
+    $('#modalContent .modal-photo-next').addEventListener('click',()=>{
+      photoIndex=(photoIndex+1)%photos.length;showPhoto();
+    });
+  }
   $('#vehicleModal').showModal();
 };
 
@@ -1288,8 +1325,42 @@ $('#vehicleModal').addEventListener('click',e=>{
   if(e.target===$('#vehicleModal'))$('#vehicleModal').close();
 });
 
-updateModelOptions();
-render();
+
+async function loadLiveInventory(){
+  grid.innerHTML='<div class="inventory-loading">Loading current Waxahachie Autoplex inventory…</div>';
+  try{
+    const response=await fetch('./inventory.json',{cache:'no-store'});
+    if(!response.ok) throw new Error(`Inventory file returned ${response.status}`);
+    const payload=await response.json();
+    vehicles=Array.isArray(payload) ? payload : (payload.vehicles || []);
+    inventorySourceUpdated=payload.updatedAt || null;
+
+    vehicles=vehicles.map((v,i)=>({
+      ...v,
+      id:v.id || v.vin || `vehicle-${i+1}`,
+      listed:v.listed ?? (vehicles.length-i),
+      image:v.image || (Array.isArray(v.images) ? v.images[0] : ''),
+      images:Array.isArray(v.images) ? v.images : (v.image?[v.image]:[])
+    }));
+
+    inventoryLoaded=true;
+    populateInventoryFilters();
+    updateModelOptions();
+    currentPage=1;
+    render();
+  }catch(error){
+    console.error(error);
+    $('#resultCount').textContent='0';
+    grid.innerHTML=`
+      <div class="inventory-sync-error">
+        <strong>Inventory sync is not loaded yet.</strong>
+        <span>Run the “Sync Wax Inventory” GitHub Action once after uploading this project. The site will then populate with the current dealership inventory automatically.</span>
+      </div>`;
+    const nav=$('#pagination'); if(nav) nav.innerHTML='';
+  }
+}
+
+loadLiveInventory();
 
 </script>
 
