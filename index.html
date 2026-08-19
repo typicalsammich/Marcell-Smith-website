@@ -1589,7 +1589,7 @@ window.openVehicle=id=>{
     let photoIndex=0;
     const imageEl=$('#modalContent .live-modal-image');
     const countEl=$('#modalContent .modal-photo-count');
-    const showPhoto=()=>{
+    let showPhoto=()=>{
       const activePhoto=photos[photoIndex];
       imageEl.style.backgroundImage=`url("${activePhoto.replace(/"/g,'%22')}")`;
       const cropped=vehiclePhotoNeedsCrop(v,activePhoto);
@@ -1658,7 +1658,15 @@ $('#modalClose').addEventListener('click',()=>{
   }
 });
 $('#vehicleModal').addEventListener('click',e=>{
-  if(e.target===$('#vehicleModal'))$('#vehicleModal').close();
+  if(e.target===$('#vehicleModal')){
+    const modal=$('#vehicleModal');
+    if(typeof modal.close==='function') modal.close();
+    else{
+      modal.removeAttribute('open');
+      modal.classList.remove('dialog-fallback-open');
+      document.body.classList.remove('modal-open');
+    }
+  }
 });
 
 
