@@ -1127,6 +1127,21 @@ body.modal-open::before{
 }
 </style>
 
+
+<style>
+.vehicle-card{
+  cursor:pointer;
+}
+.vehicle-card:focus-visible{
+  outline:2px solid #2f6bff;
+  outline-offset:2px;
+}
+.vehicle-card .call-btn,
+.vehicle-card .view-btn{
+  cursor:pointer;
+}
+</style>
+
 </head>
 <body>
   <header class="site-header" id="top">
@@ -1451,7 +1466,7 @@ function render(){
     const trans=v.trans || 'Transmission unavailable';
     const engine=v.engine || 'Engine unavailable';
     const stock=v.stock ? `Stock #${v.stock}` : (v.vin ? `VIN ${v.vin}` : 'Waxahachie Autoplex');
-    return `<article class="vehicle-card">
+    return `<article class="vehicle-card" data-vehicle-id="${v.id}" role="button" tabindex="0" aria-label="View ${v.year || ''} ${v.make || ''} ${v.model || v.title || 'vehicle'}">
       <div class="vehicle-image ${vehiclePhotoNeedsCrop(v,image)?'watermark-crop':'clean-photo'}" ${image?`style="background-image:url('${image.replace(/'/g,"%27")}')"`:''}>
         <span class="vehicle-badge">${v.badge || 'Available'}</span>
       </div>
@@ -1473,7 +1488,31 @@ function render(){
   }).join('');
 
   grid.querySelectorAll('.view-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>openVehicle(btn.dataset.vehicleId));
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      openVehicle(btn.dataset.vehicleId);
+    });
+  });
+
+  grid.querySelectorAll('.call-btn').forEach(link=>{
+    link.addEventListener('click',e=>e.stopPropagation());
+  });
+
+  grid.querySelectorAll('.vehicle-card').forEach(card=>{
+    const open=()=>openVehicle(card.dataset.vehicleId);
+
+    card.addEventListener('click',e=>{
+      if(e.target.closest('a,button,input,select,textarea,label')) return;
+      open();
+    });
+
+    card.addEventListener('keydown',e=>{
+      if(e.key==='Enter' || e.key===' '){
+        if(e.target.closest('a,button,input,select,textarea,label')) return;
+        e.preventDefault();
+        open();
+      }
+    });
   });
 
   renderPagination(list.length, totalPages, start, pageItems.length);
