@@ -847,6 +847,125 @@ html{scroll-behavior:smooth}
 .live-modal-image{position:relative}
 </style>
 
+
+<style>
+/* Mobile inventory toolbar + modal reliability fixes */
+html,body{
+  max-width:100%;
+  overflow-x:hidden;
+}
+.inventory-section,
+.inventory-section .shell,
+.filter-panel,
+.filter-topline,
+.filter-grid,
+.search-box,
+.sort-box{
+  min-width:0;
+  max-width:100%;
+}
+.filter-topline,
+.filter-grid{
+  width:100%;
+}
+.filter-topline > *,
+.filter-grid > *{
+  min-width:0 !important;
+  width:100% !important;
+  max-width:100% !important;
+}
+.search-box input,
+.sort-box select,
+.filter-grid select,
+.clear-btn{
+  min-width:0 !important;
+  width:100% !important;
+  max-width:100% !important;
+}
+.vehicle-card,
+.vehicle-body,
+.vehicle-title-row{
+  min-width:0;
+}
+.vehicle-title-row h3{
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+.dialog-fallback-open{
+  display:block;
+  position:fixed;
+  z-index:1000;
+  inset:50% auto auto 50%;
+  transform:translate(-50%,-50%);
+  max-height:90vh;
+  overflow:auto;
+}
+body.modal-open::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:999;
+  background:rgba(0,0,0,.78);
+}
+
+@media(max-width:650px){
+  .shell{
+    width:calc(100% - 24px) !important;
+    max-width:100% !important;
+  }
+  .filter-panel{
+    padding:12px !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+  }
+  .filter-topline{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) !important;
+    gap:10px !important;
+  }
+  .filter-grid{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;
+    gap:10px !important;
+  }
+  .sort-box{
+    padding-left:10px !important;
+  }
+  .sort-box select,
+  .filter-grid select{
+    font-size:12px !important;
+    padding-right:28px !important;
+  }
+  .clear-btn{
+    min-height:44px;
+  }
+  .vehicle-actions{
+    grid-template-columns:minmax(0,1fr) auto !important;
+  }
+  .vehicle-modal{
+    width:calc(100% - 20px) !important;
+    max-width:calc(100% - 20px) !important;
+    max-height:92vh;
+    overflow:auto;
+    margin:auto;
+  }
+  .modal-specs{
+    grid-template-columns:1fr 1fr !important;
+  }
+  .modal-buttons{
+    flex-direction:column;
+  }
+  .modal-buttons .btn{
+    width:100%;
+  }
+}
+@media(max-width:390px){
+  .filter-grid{
+    grid-template-columns:minmax(0,1fr) !important;
+  }
+}
+</style>
+
 </head>
 <body>
   <header class="site-header" id="top">
@@ -1193,7 +1312,7 @@ function render(){
   }).join('');
 
   grid.querySelectorAll('.view-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>openVehicle(Number(btn.dataset.vehicleId)));
+    btn.addEventListener('click',()=>openVehicle(btn.dataset.vehicleId));
   });
 
   renderPagination(list.length, totalPages, start, pageItems.length);
@@ -1317,10 +1436,25 @@ window.openVehicle=id=>{
       photoIndex=(photoIndex+1)%photos.length;showPhoto();
     });
   }
-  $('#vehicleModal').showModal();
+  const modal=$('#vehicleModal');
+  if(typeof modal.showModal==='function'){
+    modal.showModal();
+  }else{
+    modal.setAttribute('open','');
+    modal.classList.add('dialog-fallback-open');
+    document.body.classList.add('modal-open');
+  }
 };
 
-$('#modalClose').addEventListener('click',()=>$('#vehicleModal').close());
+$('#modalClose').addEventListener('click',()=>{
+  const modal=$('#vehicleModal');
+  if(typeof modal.close==='function') modal.close();
+  else{
+    modal.removeAttribute('open');
+    modal.classList.remove('dialog-fallback-open');
+    document.body.classList.remove('modal-open');
+  }
+});
 $('#vehicleModal').addEventListener('click',e=>{
   if(e.target===$('#vehicleModal'))$('#vehicleModal').close();
 });
