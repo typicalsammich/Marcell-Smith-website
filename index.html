@@ -28,6 +28,16 @@
   .demo-notice{align-items:flex-start;flex-direction:column}
 }
 
+
+@media (max-width: 700px) {
+  .vehicle-modal-image,
+  .vehicle-detail-image,
+  .modal-vehicle-image {
+    clip-path: inset(7px 0 0 0) !important;
+    margin-top: -7px !important;
+  }
+}
+
 </style>
 
 <style>
@@ -1071,12 +1081,12 @@ body.modal-open::before{
 }
 @media(max-width:650px){
   .vehicle-image.watermark-crop{
-    background-size:131% auto !important;
+    background-size:134% auto !important;
     background-position:54% 60.5% !important;
   }
   .live-modal-image.watermark-crop,
   .modal-image.watermark-crop{
-    background-size:129% auto !important;
+    background-size:132% auto !important;
     background-position:54% 60.5% !important;
   }
   .vehicle-image.clean-photo,
