@@ -1098,6 +1098,35 @@ body.modal-open::before{
 }
 </style>
 
+
+<style>
+.vehicle-gallery-thumbs{
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  padding:10px 0 2px;
+  scrollbar-width:thin;
+}
+.vehicle-gallery-thumb{
+  flex:0 0 72px;
+  height:54px;
+  border:1px solid #303844;
+  border-radius:3px;
+  background-size:cover;
+  background-position:center;
+  cursor:pointer;
+  opacity:.7;
+}
+.vehicle-gallery-thumb.active{
+  opacity:1;
+  border-color:#2f6bff;
+}
+@media(max-width:650px){
+  .vehicle-gallery-thumbs{gap:6px}
+  .vehicle-gallery-thumb{flex-basis:64px;height:48px}
+}
+</style>
+
 </head>
 <body>
   <header class="site-header" id="top">
@@ -1544,6 +1573,9 @@ window.openVehicle=id=>{
       
       <h2>${v.title || `${v.year||''} ${v.make||''} ${v.model||''}`}</h2>
       <div class="modal-price">${v.price?money(v.price):'Call for price'}</div>
+      ${photos.length>1?`<div class="vehicle-gallery-thumbs">
+        ${photos.map((p,i)=>`<button type="button" class="vehicle-gallery-thumb ${i===0?'active':''}" data-photo-index="${i}" style="background-image:url('${p.replace(/'/g,"%27")}')" aria-label="View photo ${i+1}"></button>`).join('')}
+      </div>`:''}
       <div class="modal-specs">
         ${specs.map(([label,value])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('')}
       </div>
@@ -1565,12 +1597,46 @@ window.openVehicle=id=>{
       imageEl.classList.toggle('clean-photo', !cropped);
       countEl.textContent=`${photoIndex+1} / ${photos.length}`;
     };
+    const updateThumbs=()=>{
+      $('#modalContent').querySelectorAll('.vehicle-gallery-thumb').forEach((t,i)=>{
+        t.classList.toggle('active',i===photoIndex);
+      });
+    };
+    const originalShowPhoto=showPhoto;
+    showPhoto=()=>{
+      originalShowPhoto();
+      updateThumbs();
+    };
+
     $('#modalContent .modal-photo-prev').addEventListener('click',()=>{
       photoIndex=(photoIndex-1+photos.length)%photos.length;showPhoto();
     });
     $('#modalContent .modal-photo-next').addEventListener('click',()=>{
       photoIndex=(photoIndex+1)%photos.length;showPhoto();
     });
+
+    $('#modalContent').querySelectorAll('.vehicle-gallery-thumb').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        photoIndex=Number(btn.dataset.photoIndex)||0;
+        showPhoto();
+      });
+    });
+
+    let touchStartX=null;
+    imageEl.addEventListener('touchstart',e=>{
+      touchStartX=e.touches?.[0]?.clientX ?? null;
+    },{passive:true});
+    imageEl.addEventListener('touchend',e=>{
+      if(touchStartX==null) return;
+      const endX=e.changedTouches?.[0]?.clientX ?? touchStartX;
+      const dx=endX-touchStartX;
+      touchStartX=null;
+      if(Math.abs(dx)<40) return;
+      photoIndex = dx<0
+        ? (photoIndex+1)%photos.length
+        : (photoIndex-1+photos.length)%photos.length;
+      showPhoto();
+    },{passive:true});
   }
   const modal=$('#vehicleModal');
   if(typeof modal.showModal==='function'){

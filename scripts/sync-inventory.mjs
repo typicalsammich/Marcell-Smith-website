@@ -25,12 +25,6 @@ function num(s){
 }
 function unique(arr){ return [...new Set(arr.filter(Boolean))]; }
 
-function likelyWatermarked(url=""){
-  const u=String(url).toLowerCase();
-  return u.includes("waxusedcars.com/inventoryphotos/") ||
-         u.includes("/inventoryphotos/");
-}
-
 async function fetchText(url, tries=3){
   let last;
   for(let i=0;i<tries;i++){
@@ -106,19 +100,51 @@ function imageCandidatesFromJson(html){
 
 function extractImages(html,vin){
   const imgs=[...imageCandidatesFromJson(html)];
+
   const meta=[...html.matchAll(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["']/gi)];
   meta.forEach(m=>imgs.push(decode(m[1])));
-  const attrs=[...html.matchAll(/\b(?:src|data-src|data-lazy|data-original)=["'](https?:\/\/[^"']+)["']/gi)];
+
+  const attrs=[...html.matchAll(/\b(?:src|data-src|data-lazy|data-original|data-full|data-image|data-zoom-image)=["'](https?:\/\/[^"']+)["']/gi)];
   attrs.forEach(m=>imgs.push(decode(m[1])));
 
-  const bad=/logo|icon|sprite|favicon|pixel|dealeron|carfax|autocheck|loading|placeholder|transparent|award/i;
-  const normalized=unique(imgs.map(u=>u.replace(/&amp;/g,"&")))
-    .filter(u=>/^https?:\/\//i.test(u))
-    .filter(u=>!bad.test(new URL(u).pathname))
-    .filter(u=>/\.(?:jpe?g|png|webp)(?:[?#]|$)/i.test(u) || /image|photo|vehicle|inventory/i.test(u));
+  const rawInventory=[...html.matchAll(/https?:\/\/[^"'\\\s<>]*\/inventoryphotos\/[^"'\\\s<>]+/gi)];
+  rawInventory.forEach(m=>imgs.push(decode(m[0]).replace(/\\u0026/g,"&").replace(/\\\//g,"/")));
 
-  const vinMatches=normalized.filter(u=>vin && u.toUpperCase().includes(vin.toUpperCase()));
-  return vinMatches.length ? unique([...vinMatches,...normalized]) : normalized;
+  const bad=/logo|icon|sprite|favicon|pixel|dealeron|carfax|autocheck|loading|placeholder|transparent|award/i;
+  const byKey=new Map();
+
+  for(const raw of imgs){
+    try{
+      const cleanUrl=raw.replace(/&amp;/g,"&").replace(/\\u0026/g,"&");
+      const u=new URL(cleanUrl);
+      if(!/^https?:$/i.test(u.protocol)) continue;
+      if(bad.test(u.pathname)) continue;
+      if(!(/\.(?:jpe?g|png|webp)$/i.test(u.pathname) || /image|photo|vehicle|inventory/i.test(u.pathname))) continue;
+
+      const key=(u.origin+u.pathname).toLowerCase();
+      if(!byKey.has(key)) byKey.set(key,u.href);
+    }catch{}
+  }
+
+  const normalized=[...byKey.values()];
+  const vinLower=String(vin||"").toLowerCase();
+  const gallery=normalized.filter(u=>{
+    const l=u.toLowerCase();
+    return l.includes("/inventoryphotos/") && (!vinLower || l.includes(vinLower));
+  });
+
+  const orderPhoto=u=>{
+    const m=u.match(/\/ip\/(\d+)\.(?:jpe?g|png|webp)/i);
+    return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
+  };
+
+  if(gallery.length){
+    gallery.sort((a,b)=>orderPhoto(a)-orderPhoto(b));
+    return gallery;
+  }
+
+  const vinMatches=normalized.filter(u=>vinLower && u.toLowerCase().includes(vinLower));
+  return vinMatches.length ? vinMatches : normalized;
 }
 
 function field(text,label,nextLabels=[]){
@@ -173,7 +199,6 @@ function parseVehicle(html,url,index){
     stock,vin,url,
     image:images[0]||"",
     images,
-    watermarked:likelyWatermarked(images[0]||""),
     badge:"Available"
   };
 }
