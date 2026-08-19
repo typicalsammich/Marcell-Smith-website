@@ -58,6 +58,72 @@ function parseUrlSummary(url){
   return {url,year,make,slugModel:rest,vin};
 }
 
+
+async function imageExists(url){
+  try{
+    let r=await fetch(url,{
+      method:"HEAD",
+      headers:{"user-agent":"Mozilla/5.0 (compatible; MarcellInventorySync/1.0)"},
+      redirect:"follow"
+    });
+    if(r.ok){
+      const ct=(r.headers.get("content-type")||"").toLowerCase();
+      return !ct || ct.startsWith("image/");
+    }
+    if(r.status===405){
+      r=await fetch(url,{
+        method:"GET",
+        headers:{
+          "user-agent":"Mozilla/5.0 (compatible; MarcellInventorySync/1.0)",
+          "range":"bytes=0-0"
+        },
+        redirect:"follow"
+      });
+      const ct=(r.headers.get("content-type")||"").toLowerCase();
+      return r.ok && (!ct || ct.startsWith("image/"));
+    }
+  }catch{}
+  return false;
+}
+
+async function discoverNumberedGallery(images){
+  const existing=unique(images||[]);
+  const primary=existing.find(u=>/\/inventoryphotos\/.+\/ip\/\d+\.(?:jpe?g|png|webp)(?:[?#]|$)/i.test(u));
+  if(!primary) return existing;
+
+  let parsed;
+  try{ parsed=new URL(primary); }catch{ return existing; }
+
+  const m=parsed.pathname.match(/^(.*\/ip\/)(\d+)(\.(?:jpe?g|png|webp))$/i);
+  if(!m) return existing;
+
+  const prefix=`${parsed.origin}${m[1]}`;
+  const ext=m[3];
+  const found=new Map();
+
+  for(const u of existing){
+    const n=u.match(/\/ip\/(\d+)\.(?:jpe?g|png|webp)(?:[?#]|$)/i);
+    if(n) found.set(Number(n[1]),u);
+  }
+
+  let misses=0;
+  for(let n=1;n<=100;n++){
+    if(found.has(n)){ misses=0; continue; }
+    const candidate=`${prefix}${n}${ext}`;
+    if(await imageExists(candidate)){
+      found.set(n,candidate);
+      misses=0;
+    }else{
+      misses++;
+      if(found.size>0 && misses>=3) break;
+    }
+  }
+
+  return found.size
+    ? [...found.entries()].sort((a,b)=>a[0]-b[0]).map(([,u])=>u)
+    : existing;
+}
+
 function getJsonLd(html){
   const out=[];
   const rx=/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
@@ -104,23 +170,30 @@ function extractImages(html,vin){
   const meta=[...html.matchAll(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["']/gi)];
   meta.forEach(m=>imgs.push(decode(m[1])));
 
-  const attrs=[...html.matchAll(/\b(?:src|data-src|data-lazy|data-original|data-full|data-image|data-zoom-image)=["'](https?:\/\/[^"']+)["']/gi)];
+  const attrs=[...html.matchAll(/\b(?:src|data-src|data-lazy|data-original|data-full|data-image|data-zoom-image)=["']([^"']+)["']/gi)];
   attrs.forEach(m=>imgs.push(decode(m[1])));
 
-  const rawInventory=[...html.matchAll(/https?:\/\/[^"'\\\s<>]*\/inventoryphotos\/[^"'\\\s<>]+/gi)];
-  rawInventory.forEach(m=>imgs.push(decode(m[0]).replace(/\\u0026/g,"&").replace(/\\\//g,"/")));
+  const deescaped=html
+    .replace(/\\\//g,"/")
+    .replace(/\\u0026/gi,"&")
+    .replace(/&amp;/g,"&");
+
+  for(const m of deescaped.matchAll(/(?:https?:)?\/\/[^"'<>\\\s]+\/inventoryphotos\/[^"'<>\\\s]+/gi)){
+    imgs.push(m[0].startsWith("//") ? `https:${m[0]}` : m[0]);
+  }
+  for(const m of deescaped.matchAll(/["'(=:\s]((?:\/)?inventoryphotos\/[^"'<>\\\s)]+)/gi)){
+    imgs.push(new URL(m[1].startsWith("/") ? m[1] : `/${m[1]}`, BASE).href);
+  }
 
   const bad=/logo|icon|sprite|favicon|pixel|dealeron|carfax|autocheck|loading|placeholder|transparent|award/i;
   const byKey=new Map();
 
   for(const raw of imgs){
     try{
-      const cleanUrl=raw.replace(/&amp;/g,"&").replace(/\\u0026/g,"&");
-      const u=new URL(cleanUrl);
+      const u=new URL(String(raw).replace(/&amp;/g,"&"),BASE);
       if(!/^https?:$/i.test(u.protocol)) continue;
       if(bad.test(u.pathname)) continue;
       if(!(/\.(?:jpe?g|png|webp)$/i.test(u.pathname) || /image|photo|vehicle|inventory/i.test(u.pathname))) continue;
-
       const key=(u.origin+u.pathname).toLowerCase();
       if(!byKey.has(key)) byKey.set(key,u.href);
     }catch{}
@@ -128,18 +201,19 @@ function extractImages(html,vin){
 
   const normalized=[...byKey.values()];
   const vinLower=String(vin||"").toLowerCase();
+
   const gallery=normalized.filter(u=>{
     const l=u.toLowerCase();
     return l.includes("/inventoryphotos/") && (!vinLower || l.includes(vinLower));
   });
 
-  const orderPhoto=u=>{
+  const photoNumber=u=>{
     const m=u.match(/\/ip\/(\d+)\.(?:jpe?g|png|webp)/i);
     return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
   };
 
   if(gallery.length){
-    gallery.sort((a,b)=>orderPhoto(a)-orderPhoto(b));
+    gallery.sort((a,b)=>photoNumber(a)-photoNumber(b));
     return gallery;
   }
 
@@ -235,7 +309,13 @@ console.log(`Found ${urls.length} vehicle pages. Fetching details...`);
 const vehicles=await mapLimit(urls,8,async(url,i)=>{
   const html=await fetchText(url);
   const v=parseVehicle(html,url,i);
-  console.log(`${i+1}/${urls.length} ${v.title||v.vin||url}`);
+
+  if((v.images?.length||0)<=1){
+    v.images=await discoverNumberedGallery(v.images||[]);
+    v.image=v.images[0]||v.image||"";
+  }
+
+  console.log(`${i+1}/${urls.length} ${v.title||v.vin||url} — ${v.images?.length||0} photos`);
   return v;
 });
 
