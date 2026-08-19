@@ -1050,6 +1050,44 @@ body.modal-open::before{
 }
 </style>
 
+
+<style>
+.vehicle-image.clean-photo,
+.live-modal-image.clean-photo,
+.modal-image.clean-photo{
+  background-size:cover !important;
+  background-position:center center !important;
+}
+.vehicle-image.watermark-crop{
+  background-size:127% auto !important;
+  background-position:center 57% !important;
+  background-repeat:no-repeat !important;
+}
+.live-modal-image.watermark-crop,
+.modal-image.watermark-crop{
+  background-size:126% auto !important;
+  background-position:center 57% !important;
+  background-repeat:no-repeat !important;
+}
+@media(max-width:650px){
+  .vehicle-image.watermark-crop{
+    background-size:146% auto !important;
+    background-position:center 61% !important;
+  }
+  .live-modal-image.watermark-crop,
+  .modal-image.watermark-crop{
+    background-size:144% auto !important;
+    background-position:center 61% !important;
+  }
+  .vehicle-image.clean-photo,
+  .live-modal-image.clean-photo,
+  .modal-image.clean-photo{
+    background-size:cover !important;
+    background-position:center center !important;
+  }
+}
+</style>
+
 </head>
 <body>
   <header class="site-header" id="top">
@@ -1375,7 +1413,7 @@ function render(){
     const engine=v.engine || 'Engine unavailable';
     const stock=v.stock ? `Stock #${v.stock}` : (v.vin ? `VIN ${v.vin}` : 'Waxahachie Autoplex');
     return `<article class="vehicle-card">
-      <div class="vehicle-image" ${image?`style="background-image:url('${image.replace(/'/g,"%27")}')"`:''}>
+      <div class="vehicle-image ${vehiclePhotoNeedsCrop(v,image)?'watermark-crop':'clean-photo'}" ${image?`style="background-image:url('${image.replace(/'/g,"%27")}')"`:''}>
         <span class="vehicle-badge">${v.badge || 'Available'}</span>
       </div>
       <div class="vehicle-body">
@@ -1486,7 +1524,7 @@ window.openVehicle=id=>{
   ];
   const mainPhoto=photos[0] || '';
   $('#modalContent').innerHTML=`
-    <div class="modal-image live-modal-image" ${mainPhoto?`style="background-image:url('${mainPhoto.replace(/'/g,"%27")}')"`:''}>
+    <div class="modal-image live-modal-image ${vehiclePhotoNeedsCrop(v,mainPhoto)?'watermark-crop':'clean-photo'}" ${mainPhoto?`style="background-image:url('${mainPhoto.replace(/'/g,"%27")}')"`:''}>
       ${photos.length>1?`
         <button class="modal-photo-nav modal-photo-prev" type="button" aria-label="Previous vehicle photo">←</button>
         <button class="modal-photo-nav modal-photo-next" type="button" aria-label="Next vehicle photo">→</button>
@@ -1510,7 +1548,11 @@ window.openVehicle=id=>{
     const imageEl=$('#modalContent .live-modal-image');
     const countEl=$('#modalContent .modal-photo-count');
     const showPhoto=()=>{
-      imageEl.style.backgroundImage=`url("${photos[photoIndex].replace(/"/g,'%22')}")`;
+      const activePhoto=photos[photoIndex];
+      imageEl.style.backgroundImage=`url("${activePhoto.replace(/"/g,'%22')}")`;
+      const cropped=vehiclePhotoNeedsCrop(v,activePhoto);
+      imageEl.classList.toggle('watermark-crop', cropped);
+      imageEl.classList.toggle('clean-photo', !cropped);
       countEl.textContent=`${photoIndex+1} / ${photos.length}`;
     };
     $('#modalContent .modal-photo-prev').addEventListener('click',()=>{
@@ -1648,6 +1690,16 @@ function cleanVehicleDisplayName(value){
     .replace(/\s+Waxahachie\s*,?\s*TX\b/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+</script>
+
+
+<script>
+function vehiclePhotoNeedsCrop(v, imageUrl){
+  if(typeof v?.watermarked === 'boolean') return v.watermarked;
+  const u = String(imageUrl || '').toLowerCase();
+  return u.includes('waxusedcars.com/inventoryphotos/') ||
+         u.includes('/inventoryphotos/');
 }
 </script>
 

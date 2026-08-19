@@ -25,6 +25,12 @@ function num(s){
 }
 function unique(arr){ return [...new Set(arr.filter(Boolean))]; }
 
+function likelyWatermarked(url=""){
+  const u=String(url).toLowerCase();
+  return u.includes("waxusedcars.com/inventoryphotos/") ||
+         u.includes("/inventoryphotos/");
+}
+
 async function fetchText(url, tries=3){
   let last;
   for(let i=0;i<tries;i++){
@@ -167,6 +173,7 @@ function parseVehicle(html,url,index){
     stock,vin,url,
     image:images[0]||"",
     images,
+    watermarked:likelyWatermarked(images[0]||""),
     badge:"Available"
   };
 }
