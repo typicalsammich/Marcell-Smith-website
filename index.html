@@ -1334,7 +1334,7 @@ function matchesPrice(v,val){
 function render(){
   const q=$('#searchInput').value.trim().toLowerCase();
   let list=vehicles.filter(v=>{
-    const text=`${v.year} ${v.make} ${v.model} ${v.stock}`.toLowerCase();
+    const text=`${v.year} ${v.make} ${cleanVehicleDisplayName(v.model)} ${v.stock}`.toLowerCase();
     return (!q||text.includes(q)) &&
       ($('#yearFilter').value==='all'||String(v.year)===$('#yearFilter').value) &&
       ($('#makeFilter').value==='all'||v.make===$('#makeFilter').value) &&
@@ -1638,6 +1638,17 @@ loadLiveInventory();
   const onScroll=()=>header&&header.classList.toggle('is-scrolled',scrollY>18);
   onScroll();addEventListener('scroll',onScroll,{passive:true});
 })();
+</script>
+
+
+<script>
+function cleanVehicleDisplayName(value){
+  return String(value ?? "")
+    .replace(/\s*\|\s*Waxahachie\s*,?\s*TX\b/gi, "")
+    .replace(/\s+Waxahachie\s*,?\s*TX\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
 </script>
 
 </body>
